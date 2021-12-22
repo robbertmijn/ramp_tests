@@ -42,15 +42,21 @@ for(i in 1:length(files)){
 alldat[, hr := rollmean(heart_rate, 10, fill = T), by = date]
 alldat[, power.s := rollmean(power, 10, fill = T), by = date]
 
+alldat[, v.power.s := power.s - shift(power.s)]
+alldat <- merge(alldat, alldat[power.s - shift(power.s) < -20, .(duration = min(t)), by = date], by = "date")
+alldat[, power.s := ifelse(t > duration, NA, power.s)]
+
 # transform so heartrate and power have similar scale
-alldat[, hr.t := (hr * 4 ) - 400 ]
+hr_power_scale <- 3
+hr_power_intercept <- 300
+alldat[, hr.t := (hr * hr_power_scale) - hr_power_intercept]
 
 # plot
 interval <- c(-10, 1000)
 ggplot(alldat[t %between% interval], aes(x = t, color = date)) +
-  scale_x_continuous() +
+  scale_x_continuous(name = "Time (s)") +
   geom_line(aes(y = power.s), alpha = .8) +
   geom_line(aes(y = hr.t), alpha = .8) +
   scale_color_brewer(palette = "Dark2") +
-  scale_y_continuous(name = "Power", sec.axis = sec_axis(trans=~(.+400)/4, name="Heart Rate")) +
+  scale_y_continuous(name = "Power", sec.axis = sec_axis(trans=~(.+hr_power_intercept)/hr_power_scale, name="Heart Rate")) +
   geom_vline(xintercept = seq(0, 1000, by = 60), alpha = .1)
